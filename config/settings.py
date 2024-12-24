@@ -19,9 +19,17 @@ DJANGO_APPS = [
     'django.contrib.staticfiles',
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
 ADDITIONAL_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 OWN_APPS = [
@@ -30,7 +38,6 @@ OWN_APPS = [
     'orders',
     'playlists',
     'reviews',
-    'telegram-bot',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + ADDITIONAL_APPS + OWN_APPS
