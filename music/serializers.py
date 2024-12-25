@@ -7,6 +7,6 @@ class SongSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate_duration(self, value):
-        if value < 0:
+        if value < 0: 
             raise serializers.ValidationError('Длительность не может быть отрицательной')
         return value
