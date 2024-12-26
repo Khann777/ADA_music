@@ -12,7 +12,7 @@ class Order(models.Model):
         related_name='orders')
     STATUS_CHOICES = [
         ('pending', 'В обработке'),
-        ('completed', 'Готово'),
+        ('approved', 'Одобрено'),
         ('rejected', 'Отклонено'),
     ]
     status = models.CharField(
