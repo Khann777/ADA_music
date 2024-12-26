@@ -7,4 +7,4 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ('status', 'created_at')
     search_fields = ('song', 'author', 'customer__username')
 
-admin.site.register(Order)
+admin.site.register(Order, OrderAdmin)
