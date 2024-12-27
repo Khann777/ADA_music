@@ -1,56 +1,36 @@
 from django.shortcuts import render
 from .models import Playlist
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, generics
-from django.http import JsonResponse
+from rest_framework import viewsets, permissions, status
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.decorators import action
 from .serializers import PlaylistSerializer
+from music.views import Song
 
-class PlaylistCreate(APIView):
-    permission_classes = (IsAuthenticated)
-
-    def post(self, request):
-        serializer = PlaylistSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.validated_data['owner'] = request.user
-            serializer.save()
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-class PlaylistListView(APIView):
-    permission_classes = (IsAuthenticated)
-
-    def get(self, request):
-        playlists = Playlist.objects.filter(owner=request.user)
-        serializer = PlaylistSerializer(playlists, many=True)
-        return Response(serializer.data)
-    
-
-class PlaylistDetailView(generics.RetrieveAPIView):
-    permission_classes = (IsAuthenticated)
+class PlaylistViewSet(viewsets.ModelViewSet):
     queryset = Playlist.objects.all()
     serializer_class = PlaylistSerializer
+    ADMIN_ACTIONS = ['create', 'update', 'destroy', 'approve', 'reject']
+
+
+    def get_permissions(self):
+        if self.action in self.ADMIN_ACTIONS:
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+    
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)   
+
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return Playlist.objects.all()
+        return Playlist.objects.filter(owner=user)
     
 
-class PlaylistDeleteView(generics.DestroyAPIView):
-    permission_classes = (IsAuthenticated)
-    queryset = Playlist.objects.all()
-
-class PlaylistUpdateView(generics.UpdateAPIView):
-    permission_classes = (IsAuthenticated)
-    queryset = Playlist.objects.all()
-    serializer_class = PlaylistSerializer
-
-
-class AddToPlaylist(ModelViewSet):
-    queryset = Playlist.objects.all()
-    serializer_class = PlaylistSerializer
-
-    @action(detail=False, methods=['POST'])
-    def add_song(self, request, pk):
+    @action(detail=True, methods=['POST'])
+    def add_song(self, request, pk=None):
         playlist = self.get_object()
         song_ids = request.data.get('songs', [])
 
@@ -58,7 +38,7 @@ class AddToPlaylist(ModelViewSet):
             return Response({'msg': 'Не переданы песни'}, status=status.HTTP_400_BAD_REQUEST)
         
         songs = Song.objects.filter(id__in=song_ids)
-        if len(songs) != len(song_ids):
+        if songs.count() != len(set(song_ids)):
             return Response({'msg': 'Некоторые песни не найдены'}, status=status.HTTP_404_NOT_FOUND)
 
         for song in songs:
@@ -67,12 +47,9 @@ class AddToPlaylist(ModelViewSet):
 
         serializer = PlaylistSerializer(playlist)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class DeleteFromPlaylist(ModelViewSet):
-    queryset = Playlist.objects.all()
-    serializer_class = PlaylistSerializer
 
-    @action(detail=False, methods=['DELETE'])
+
+    @action(detail=True, methods=['DELETE'])
     def delete_from_playlist(self, request, pk=None):
         playlist = self.get_object()
         song_ids = request.data.get('songs', [])
@@ -80,10 +57,9 @@ class DeleteFromPlaylist(ModelViewSet):
         if not song_ids:
             return Response({'msg': 'Не переданы песни'}, status=status.HTTP_400_BAD_REQUEST)
 
-        songs = playlist.objects.filter(id__in=song_ids)
-        if len(songs) != len(song_ids):
+        songs_ = playlist.songs.filter(id__in=song_ids)
+        if songs_.count() != len(set(song_ids)):
             return Response({'msg': 'Некоторые песни не найдены'}, status=status.HTTP_404_NOT_FOUND)
 
-        playlist.songs.remove()
-        
-
+        playlist.songs.remove(*songs_)
+        return Response({'msg': 'Песни успешно удалены из плейлиста'}, status=status.HTTP_200_OK)

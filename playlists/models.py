@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 class Playlist(models.Model):
     
     name = models.CharField(max_length=100)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='playlists')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, null=False, blank=False, related_name='playlists')
     songs = models.ManyToManyField('music.Song', related_name='playlists', blank=True)
 
 
