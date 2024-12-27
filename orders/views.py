@@ -10,7 +10,7 @@ from .serializers import OrderSerializer
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    ADMIN_ACTIONS = ['create', 'update', 'destroy', 'approve', 'reject']
+    ADMIN_ACTIONS = ['update', 'destroy', 'approve', 'reject', 'list', 'retrieve']
 
     def get_permissions(self):
         """
