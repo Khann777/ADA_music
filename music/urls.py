@@ -1,9 +1,16 @@
 from django.urls import path
-from .views import CreateSong, DeleteSong, get_song, UpdateSong
+from .views import (
+    ReviewAddView, SongListView, SongDetailView,
+    SongUpdateView, SongDeleteView, SongCreateView
+)
 
 urlpatterns = [
-    path('song-list/', get_song),
-    path('song-delete/<int:pk>/', DeleteSong.as_view()),
-    path('song-create/', CreateSong.as_view()),
-    path('song-update/<int:pk>/', UpdateSong.as_view())
-    ]
+    path('music/', SongCreateView.as_view(), name='song-create'),  # POST для создания песни
+    path('music/list/', SongListView.as_view(), name='song-list'),
+    path('music/<int:pk>/', SongDetailView.as_view(), name='song-detail'),
+    path('music/<int:pk>/update/', SongUpdateView.as_view(), name='song-update'),
+    path('music/<int:pk>/delete/', SongDeleteView.as_view(), name='song-delete'),
+
+    # Отзывы
+    path('music/<int:song_id>/review/', ReviewAddView.as_view(), name='add-review'),
+]

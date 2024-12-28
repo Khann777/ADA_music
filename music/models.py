@@ -5,6 +5,8 @@ class Song(models.Model):
     author = models.CharField(max_length=50)
     duration = models.IntegerField()
     genre = models.CharField(max_length=50)
+    file = models.FileField(upload_to='uploads/', null=True, blank=True)
+
 
 
     def __str__(self):
