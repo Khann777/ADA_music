@@ -25,11 +25,16 @@ class UserRegisterView(CreateAPIView):
     permission_classes = (AllowAny,)
 
     def post(self, request, *args, **kwargs):
+        telegram_chat_id = request.data.get('telegram_chat_id')
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
+            if telegram_chat_id:
+                user.telegram_chat_id = telegram_chat_id
+                user.save()
             return Response({"message": "User created", "data": serializer.data}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 #? Авторизация пользователя
