@@ -6,6 +6,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 
+TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN')
+
 DEBUG = True
 
 ALLOWED_HOSTS = []
@@ -38,6 +40,7 @@ OWN_APPS = [
     'orders',
     'playlists',
     'reviews',
+    'telegram_bot'
 ]
 
 INSTALLED_APPS = DJANGO_APPS + ADDITIONAL_APPS + OWN_APPS
