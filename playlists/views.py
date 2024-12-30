@@ -1,65 +1,82 @@
-from django.shortcuts import render
-from .models import Playlist
+from django.contrib.auth.models import User
+from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import viewsets, permissions, status
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.decorators import action
+
+from django.shortcuts import get_object_or_404
+from .models import Playlist
 from .serializers import PlaylistSerializer
-from music.views import Song
+from music.models import Song
+from account.permissions import IsOwner
+
 
 class PlaylistViewSet(viewsets.ModelViewSet):
-    queryset = Playlist.objects.all()
+    """
+    Viewset for playlists
+    """
     serializer_class = PlaylistSerializer
-    ADMIN_ACTIONS = ['create', 'update', 'destroy', 'approve', 'reject']
-
-
-    def get_permissions(self):
-        if self.action in self.ADMIN_ACTIONS:
-            return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
-    
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)   
-
+    permission_classes = (IsAuthenticated,)
+    queryset = Playlist.objects.all()
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_staff:
+        """
+        Админ видит все плейлисты, а обычные пользователи только свои.
+        """
+        if self.request.user.is_staff:
             return Playlist.objects.all()
-        return Playlist.objects.filter(owner=user)
-    
+        return Playlist.objects.filter(owner=self.request.user)
 
-    @action(detail=True, methods=['POST'])
+    def perform_create(self, serializer):
+        """
+        Устанавливаем текущего пользователя как владельца плейлиста.
+        """
+        serializer.save(owner=self.request.user)
+
+    def get_permissions(self):
+        """
+        Определяем права доступа для действий.
+        """
+        if self.action in ['update', 'partial_update', 'destroy', 'add_song', 'remove_song', 'share', 'revoke_access']:
+            return [IsOwner()]
+        return super().get_permissions()
+
+    @action(detail=True, methods=['post'])
     def add_song(self, request, pk=None):
         playlist = self.get_object()
-        song_ids = request.data.get('songs', [])
+        song_id = request.data.get('song_id')
+        song = get_object_or_404(Song, pk=song_id)
+        if song in playlist.songs.all():
+            return Response({"detail": f"Song - {song.title} already in playlist {playlist.title}."}, status=status.HTTP_400_BAD_REQUEST)
+        playlist.songs.add(song)
+        return Response({"detail": f"Song - {song.title} added to playlist - {playlist.title}"}, status=status.HTTP_201_CREATED)
 
-        if not song_ids:
-            return Response({'msg': 'Не переданы песни'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        songs = Song.objects.filter(id__in=song_ids)
-        if songs.count() != len(set(song_ids)):
-            return Response({'msg': 'Некоторые песни не найдены'}, status=status.HTTP_404_NOT_FOUND)
-
-        for song in songs:
-            if song not in playlist.songs.all():
-                playlist.songs.add(song)
-
-        serializer = PlaylistSerializer(playlist)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-    @action(detail=True, methods=['DELETE'])
-    def delete_from_playlist(self, request, pk=None):
+    @action(detail=True, methods=['post'])
+    def remove_song(self, request, pk=None):
         playlist = self.get_object()
-        song_ids = request.data.get('songs', [])
+        song_id = request.data.get('song_id')
+        song = get_object_or_404(Song, pk=song_id)
+        if song not in playlist.songs.all():
+            return Response({"detail": f"Song - {song.title} not in playlist - {playlist.title}."}, status=status.HTTP_400_BAD_REQUEST)
+        playlist.songs.remove(song)
+        return Response({"detail": f"Song - {song.title} removed from playlist - {playlist.title}"}, status=status.HTTP_200_OK)
 
-        if not song_ids:
-            return Response({'msg': 'Не переданы песни'}, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=True, methods=['post'])
+    def share(self, request, pk=None):
+        playlist = self.get_object()
+        username = request.data.get('username')
+        user = get_object_or_404(User, username=username)
+        if user in playlist.shared_with.all():
+            return Response({"detail": f"User {username} already has access to playlist - {playlist.title}."}, status=status.HTTP_400_BAD_REQUEST)
+        playlist.shared_with.add(user)
+        return Response({"detail": f"Playlist shared with {username} for playlist - {playlist.title}."}, status=status.HTTP_200_OK)
 
-        songs_ = playlist.songs.filter(id__in=song_ids)
-        if songs_.count() != len(set(song_ids)):
-            return Response({'msg': 'Некоторые песни не найдены'}, status=status.HTTP_404_NOT_FOUND)
-
-        playlist.songs.remove(*songs_)
-        return Response({'msg': 'Песни успешно удалены из плейлиста'}, status=status.HTTP_200_OK)
+    @action(detail=True, methods=['post'])
+    def revoke_access(self, request, pk=None):
+        playlist = self.get_object()
+        username = request.data.get('username')
+        user = get_object_or_404(User, username=username)
+        if user not in playlist.shared_with.all():
+            return Response({"detail": f"User {username} does not have access to playlist - {playlist.title}."}, status=status.HTTP_400_BAD_REQUEST)
+        playlist.shared_with.remove(user)
+        return Response({"detail": f"Access revoked for {username} from playlist - {playlist.title}."}, status=status.HTTP_200_OK)

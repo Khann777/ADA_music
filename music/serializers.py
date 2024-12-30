@@ -1,9 +1,11 @@
 from rest_framework import serializers
+from django.db.models import Avg
+
 from .models import Song
 
 class SongSerializer(serializers.ModelSerializer):
-    MAX_SIZE = 10*1024*1024
-    ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.m4p']
+    average_rating = serializers.SerializerMethodField()
+
     class Meta:
         model = Song
         fields = '__all__'
@@ -12,13 +14,12 @@ class SongSerializer(serializers.ModelSerializer):
         if value < 0: 
             raise serializers.ValidationError('Длительность не может быть отрицательной')
         return value
-    
-    def validate_file(self, value):
-        if value is None:
-            raise serializers.ValidationError('File must be provided')
-        if value.size > self.MAX_SIZE:
-            raise serializers.ValidationError('File must be smaller than 10MB')
-        if not any(value.name.lower().endswith(ext) for ext in self.ALLOWED_EXTENSIONS):
-            allowed_ext_str = ', '.join(self.ALLOWED_EXTENSIONS)
-            raise serializers.ValidationError(f'File must have one of the following extensions: {allowed_ext_str}.')
-        return value
+
+    def get_average_rating(self, instance):
+        """
+        Рассчитывает средний рейтинг песни на основе связанных отзывов.
+        """
+        reviews = instance.reviews.all()
+        if reviews.exists():
+            return reviews.aggregate(Avg('rating'))['rating__avg']
+        return 0  # Если отзывов нет, средний рейтинг равен 0
