@@ -1,14 +1,9 @@
-from rest_framework.response import Response
-
-from reviews.serializers import ReviewSerializer
-from .models import Song
-from rest_framework import generics
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
-from django.shortcuts import get_object_or_404
+from rest_framework import generics
 
-from account.permissions import IsUserOrAdmin
+from .models import Song
 from .serializers import SongSerializer
-
 
 class SongCreateView(generics.CreateAPIView):
     permission_classes = (IsAdminUser,)
@@ -37,30 +32,42 @@ class SongDeleteView(generics.DestroyAPIView):
     queryset = Song.objects.all()
 
 
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from rest_framework import generics
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+
+from account.permissions import IsUserOrAdmin
+from .models import Song
+from .serializers import SongSerializer
+from reviews.serializers import ReviewSerializer
+
+
 class ReviewAddView(generics.CreateAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [IsUserOrAdmin]
 
     def perform_create(self, serializer):
-        song_id = self.kwargs.get('song_id')
-        song = generics.get_object_or_404(Song, id=song_id)
-
-        existing_review = song.reviews.filter(reviewer=self.request.user).first()
-        if existing_review:
-            # Если отзыв существует, удаляем его
-            existing_review.delete()
-
-        # Создаем новый отзыв
-        serializer.save(
-            reviewer=self.request.user,  # Передаем текущего пользователя
-            music=song  # Привязываем песню
-        )
-
-    def get_serializer_context(self):
         """
-        Добавляем текущего пользователя и объект песни в контекст сериализатора.
+        Создаем новый отзыв. Уникальность отзыва контролируется с помощью unique_together в модели.
         """
-        context = super().get_serializer_context()
         song_id = self.kwargs.get('song_id')
-        context['song'] = generics.get_object_or_404(Song, id=song_id)
-        return context
+        song = get_object_or_404(Song, id=song_id)
+
+        try:
+            # Сохраняем новый отзыв
+            serializer.save(
+                reviewer=self.request.user,
+                music=song
+            )
+        except ValidationError:
+            # В случае нарушения уникальности отзыва для песни и пользователя
+            raise ValidationError('Вы уже оставили отзыв для этой песни.')
+
+    def create(self, request, *args, **kwargs):
+        """
+        Переопределяем метод create, чтобы добавить детализированный ответ.
+        """
+        response = super().create(request, *args, **kwargs)
+        return Response({'detail': 'Отзыв добавлен'}, status=201)
+

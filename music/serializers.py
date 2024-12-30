@@ -1,11 +1,10 @@
 from rest_framework import serializers
+from django.db.models import Avg
 
-from reviews.models import Review
-from reviews.serializers import ReviewSerializer
 from .models import Song
 
 class SongSerializer(serializers.ModelSerializer):
-    review_count = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Song
@@ -16,5 +15,11 @@ class SongSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Длительность не может быть отрицательной')
         return value
 
-    def get_review_count(self, instance):
-        return instance.reviews.count()
+    def get_average_rating(self, instance):
+        """
+        Рассчитывает средний рейтинг песни на основе связанных отзывов.
+        """
+        reviews = instance.reviews.all()
+        if reviews.exists():
+            return reviews.aggregate(Avg('rating'))['rating__avg']
+        return 0  # Если отзывов нет, средний рейтинг равен 0
