@@ -1,9 +1,15 @@
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
+from rest_framework.response import Response
 from rest_framework import generics
+from django.shortcuts import get_object_or_404
+
+from account.permissions import IsUserOrAdmin
+from reviews.serializers import ReviewSerializer
 
 from .models import Song
 from .serializers import SongSerializer
+
 
 class SongCreateView(generics.CreateAPIView):
     permission_classes = (IsAdminUser,)
@@ -30,18 +36,6 @@ class SongUpdateView(generics.UpdateAPIView):
 class SongDeleteView(generics.DestroyAPIView):
     permission_classes = (IsAdminUser,)
     queryset = Song.objects.all()
-
-
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from rest_framework import generics
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
-
-from account.permissions import IsUserOrAdmin
-from .models import Song
-from .serializers import SongSerializer
-from reviews.serializers import ReviewSerializer
-
 
 class ReviewAddView(generics.CreateAPIView):
     serializer_class = ReviewSerializer
