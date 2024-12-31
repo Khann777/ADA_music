@@ -86,5 +86,3 @@ def process_login_password(message, username):
         bot.reply_to(message, f"Вы успешно вошли! Ваш токен: {auth_data['access']}")
     else:
         bot.reply_to(message, "Ошибка входа. Проверьте данные и попробуйте снова.")
-
-
